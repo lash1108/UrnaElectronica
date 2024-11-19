@@ -34,7 +34,8 @@ const SeleccionarCandidato = () => {
 
   const router = useRouter();
 
-  const isVoteButtonDisabled = selectedVotes.length === 0 && otherCandidate.trim() === "";
+  const isVoteButtonDisabled =
+    selectedVotes.length === 0 && otherCandidate.trim() === "";
 
   useEffect(() => {
     (async () => {
@@ -62,12 +63,12 @@ const SeleccionarCandidato = () => {
   const startTimer = () => {
     Alert.alert(
       "Atención",
-      "Cuentas con 2 minutos a partir de ahora para votar."
+      "Cuentas con 3 minutos a partir de ahora para votar.",
     );
 
     setTimeout(() => {
       handleLogout();
-    }, 120000); // 2 minutos
+    }, 180000); // 3 minutos
   };
 
   const handleLogout = async () => {
@@ -120,7 +121,7 @@ const SeleccionarCandidato = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.data) {
@@ -165,8 +166,6 @@ const SeleccionarCandidato = () => {
         votesString += `,${otherCandidate.trim()}`;
       }
 
-      console.log(votesString)
-
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
         {
@@ -178,7 +177,7 @@ const SeleccionarCandidato = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.data) {
@@ -210,7 +209,7 @@ const SeleccionarCandidato = () => {
   const toggleVote = (candidate: string) => {
     if (selectedVotes.includes(candidate)) {
       setSelectedVotes((prevVotes) =>
-        prevVotes.filter((vote) => vote !== candidate)
+        prevVotes.filter((vote) => vote !== candidate),
       );
     } else {
       setSelectedVotes((prevVotes) => [...prevVotes, candidate]);
@@ -269,8 +268,8 @@ const SeleccionarCandidato = () => {
                         candidate === "1"
                           ? require("../assets/AndreaA.jpeg")
                           : candidate === "2"
-                          ? require("../assets/CristinaP.png")
-                          : require("../assets/JorgeG.jpeg")
+                            ? require("../assets/CristinaP.png")
+                            : require("../assets/JorgeG.jpeg")
                       }
                       style={styles.candidateAvatar}
                     />
@@ -278,8 +277,8 @@ const SeleccionarCandidato = () => {
                       {candidate === "1"
                         ? "Andrea Aparicio"
                         : candidate === "2"
-                        ? "Cristina Pacheco"
-                        : "Jorge Gamez"}
+                          ? "Cristina Pacheco"
+                          : "Jorge Gamez"}
                     </Text>
                     {isSelected(candidate) && (
                       <Text style={styles.overlayText}>X</Text>
@@ -306,11 +305,16 @@ const SeleccionarCandidato = () => {
                   <Text style={styles.logoutButtonText}>Votar</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+              >
                 <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
               </TouchableOpacity>
               <Text style={styles.footerText}>UAEM</Text>
-              <Text style={styles.footerSubText}>El voto es libre y secreto</Text>
+              <Text style={styles.footerSubText}>
+                El voto es libre y secreto
+              </Text>
             </>
           )}
         </ScrollView>
