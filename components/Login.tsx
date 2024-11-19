@@ -56,26 +56,31 @@ const Login = () => {
       Alert.alert("Error", "Hubo un problema al iniciar sesión.");
     } */
 
-    const auth = "Basic " + btoa("admonsvr@gmail.com:Sistema*Votacion-R01");
+    //const auth = "Basic " + btoa("admonsvr@gmail.com:Sistema*Votacion-R01");
 
     try {
       const response = await axios.post(
-        "https://votacionrectorsys.ddns.net:9002/usuarios/auth",
-        { key: "admonsvr@gmail.com" },
+        "https://votacionrectorsys.ddns.net:9002/auth/login",
         {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: auth,
-          },
-        },
+          username: "admonsvr@gmail.com",
+          password: "Sistema*Votacion-R01"
+      }
       );
 
       if (response.data) {
-        await AsyncStorage.setItem("authToken", response.data.email);
+        console.log(response.data);
+        await AsyncStorage.setItem("authToken", response.data.token);
+        await AsyncStorage.setItem("email", response.data.email);
+        await AsyncStorage.setItem("name", response.data.name);
+        await AsyncStorage.setItem("lastName", response.data.lastName);
+        await AsyncStorage.setItem("numCuenta", response.data.numCuenta);
         await AsyncStorage.setItem(
           "cveuser",
           response.data.cveuser.toLocaleString(),
         );
+        if(response.data.instList.length>0) {
+        await AsyncStorage.setItem("instList", response.data.instList[0].toLocaleString());
+        }
 
         router.replace("/home"); // Redirige a la pantalla principal
       } else {

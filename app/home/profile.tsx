@@ -18,7 +18,7 @@ const Profile = () => {
       </Text>
       <View style={styles.candidateContainer}>
         {/* Candidato A */}
-        <Link asChild href="/ruta-candidatoA">
+        <Link asChild href="/candidatoA">
           <TouchableOpacity style={styles.candidateCard}>
             <Image
               source={require("../../assets/AndreaA.jpeg")}
@@ -29,7 +29,7 @@ const Profile = () => {
         </Link>
 
         {/* Candidato B */}
-        <Link asChild href="/ruta-candidatoB">
+        <Link asChild href="/candidatoB">
           <TouchableOpacity style={styles.candidateCard}>
             <Image
               source={require("../../assets/CristinaP.png")}
@@ -40,7 +40,7 @@ const Profile = () => {
         </Link>
 
         {/* Candidato C */}
-        <Link asChild href="/ruta-candidatoC">
+        <Link asChild href="/candidatoC">
           <TouchableOpacity style={styles.candidateCard}>
             <Image
               source={require("../../assets/JorgeG.jpeg")}

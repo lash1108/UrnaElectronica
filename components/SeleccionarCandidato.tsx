@@ -16,12 +16,54 @@ import { useRouter } from "expo-router";
 import { TextInput } from "react-native-paper";
 import axios from "axios";
 
+type UserData = {
+  name: string;
+  lastName: string;
+  numCuenta: string;
+  instList: string;
+  email: string;
+};
+
 const SeleccionarCandidato = () => {
   const [otherCandidate, setOtherCandidate] = useState("");
-  const [selectedVotes, setSelectedVotes] = useState([]); // Almacena los votos seleccionados
+  const [selectedVotes, setSelectedVotes] = useState<number[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const router = useRouter();
 
-  const [timerActive, setTimerActive] = useState(false);
+  // Nueva lógica para determinar si el botón debe estar habilitado
+  const isVoteButtonDisabled = selectedVotes.length === 0 && otherCandidate.trim() === "";
+
+  useEffect(() => {
+    (async () => {
+      const storedData = await AsyncStorage.multiGet([
+        "name",
+        "lastName",
+        "numCuenta",
+        "instList",
+        "email",
+      ]);
+      const dataObject = Object.fromEntries(storedData);
+      setUserData({
+        name: dataObject.name || "",
+        lastName: dataObject.lastName || "",
+        numCuenta: dataObject.numCuenta || "",
+        instList: dataObject.instList || "Facultad de Ingeniería",
+        email: dataObject.email || "",
+      });
+      startTimer();
+    })();
+  }, []);
+
+  const startTimer = () => {
+    Alert.alert(
+      "Atención",
+      "Cuentas con 2 minutos a partir de ahora para votar."
+    );
+
+    setTimeout(() => {
+      handleLogout();
+    }, 120000); // 2 minutos
+  };
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem("isAuthenticated");
@@ -29,115 +71,101 @@ const SeleccionarCandidato = () => {
     router.replace("/");
   };
 
-  useEffect(() => {
-    let timer;
-    Alert.alert(
-      "Atencion",
-      "Cuentas con 2 minutos a partir de ahora para votar.",
-    );
+  const getStorageValue = async (key: string) => {
+    return await AsyncStorage.getItem(key);
+  };
 
-    // Solo inicia el temporizador si está activo
-    timer = setTimeout(() => {
-      handleLogout(); // Llama la función después de 2 minutos
-      setTimerActive(false); // Resetea el estado del temporizador
-    }, 120000); // 120000 ms = 2 minutos
-
-    // Limpia el temporizador si el componente se desmonta o si el temporizador se detiene
-    return () => clearTimeout(timer);
-  }, []);
-
-  async function getCveUser() {
-    return await AsyncStorage.getItem("cveuser");
-  }
-
-  const auth = "Basic " + btoa("admonsvr@gmail.com:Sistema*Votacion-R01");
-  console.log("Votos seleccionados:", selectedVotes.join(" "));
-
-  async function submitVotes() {
-    console.log("Votos seleccionados:", selectedVotes.join(" "));
-
+  const submitVotes = async () => {
     if (selectedVotes.length === 1) {
-      setVote(selectedVotes[0]);
+      await sendVote(selectedVotes[0]);
     } else {
-      setVoteWithKey(selectedVotes);
+      await sendMultipleVotes(selectedVotes);
     }
-  }
+  };
 
-  async function setVote(claveCandidate) {
-    const cveuser = await getCveUser();
-
+  const sendVote = async (claveCandidate: number) => {
     try {
+      const [cveuser, token] = await Promise.all([
+        getStorageValue("cveuser"),
+        getStorageValue("authToken"),
+      ]);
+
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVoto",
         { value1: cveuser, value2: claveCandidate },
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: auth,
+            Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (response.data) {
         Alert.alert("Voto registrado", "Has votado correctamente.");
-        setSelectedVotes([]); // Resetea los votos después de enviar
-        setOtherCandidate("");
-      } else if (response.data.status === 403) {
+        resetVote();
+      } else {
         Alert.alert("Error", "Ya has votado.");
       }
     } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Hubo un problema.");
+      handleError(error, "Hubo un problema al registrar tu voto.");
     }
-  }
+  };
 
-  async function setVoteWithKey(clavesCandidates) {
-    const cveuser = await getCveUser();
+  const sendMultipleVotes = async (clavesCandidates: number[]) => {
+    try {
+      const [cveuser, token] = await Promise.all([
+        getStorageValue("cveuser"),
+        getStorageValue("authToken"),
+      ]);
 
-    const data = JSON.stringify({
-      id: cveuser,
-      keys: clavesCandidates,
-    });
-
-    const config = {
-      method: "post",
-      url: "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: auth,
-      },
-      data: data,
-    };
-
-    axios
-      .request(config)
-      .then((response) => {
-        Alert.alert("Voto registrado", "Has votado correctamente.");
-        setSelectedVotes([]); // Resetea los votos después de enviar
-        setOtherCandidate("");
-      })
-      .catch((error) => {
-        if (error.response) {
-          console.log("Error status:", error.response.status);
-          Alert.alert("Atención", "Ya has votado.");
-        } else {
-          console.log("Error:", error.message);
+      await axios.post(
+        "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
+        {
+          id: cveuser,
+          keys: clavesCandidates,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-  }
+      );
 
-  const handleVote = (candidate) => {
-    if (!selectedVotes.includes(candidate)) {
-      setSelectedVotes([...selectedVotes, candidate]);
+      Alert.alert("Voto registrado", "Has votado correctamente.");
+      resetVote();
+    } catch (error) {
+      handleError(error, "Hubo un problema al registrar tu voto.");
     }
   };
 
-  const handleOtherCandidate = () => {
-    if (otherCandidate) {
-      handleVote(otherCandidate);
+  const handleError = (error: any, defaultMessage: string) => {
+    if (error.response) {
+      console.error("Error status:", error.response.status);
+      Alert.alert("Atención", "Ya has votado.");
+    } else {
+      console.error("Error:", error.message);
+      Alert.alert("Error", defaultMessage);
     }
-    submitVotes();
   };
+
+  const resetVote = () => {
+    setSelectedVotes([]);
+    setOtherCandidate("");
+  };
+
+  const toggleVote = (candidate: number) => {
+    if (selectedVotes.includes(candidate)) {
+      setSelectedVotes((prevVotes) =>
+        prevVotes.filter((vote) => vote !== candidate)
+      );
+    } else {
+      setSelectedVotes((prevVotes) => [...prevVotes, candidate]);
+    }
+  };
+
+  const isSelected = (candidate: number) => selectedVotes.includes(candidate);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -146,58 +174,64 @@ const SeleccionarCandidato = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.userInfoContainer}>
-            <View style={styles.userDetails}>
-              <Text style={styles.userInfoText}>
-                Espacio académico: Facultad de Ingeniería
-              </Text>
-              <Text style={styles.userInfoText}>Número de cuenta: 1614429</Text>
-              <Text style={styles.userInfoText}>Tipo usuario: Estudiante</Text>
-              <Text style={styles.userInfoText}>
-                Correo institucional: etaverac429@alumno.uaemex.mx
-              </Text>
+          {userData && (
+            <View style={styles.userInfoContainer}>
+              <View style={styles.userDetails}>
+                <Text style={styles.userInfoText}>
+                  Espacio académico: {userData.instList}
+                </Text>
+                <Text style={styles.userInfoText}>
+                  Número de cuenta: {userData.numCuenta}
+                </Text>
+                <Text style={styles.userInfoText}>Tipo usuario: Estudiante</Text>
+                <Text style={styles.userInfoText}>
+                  Correo institucional: {userData.email}
+                </Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.userName}>Edgar Alexis Tavera Carbajal</Text>
+          )}
+          {userData && (
+            <Text style={styles.userName}>
+              {userData.name} {userData.lastName}
+            </Text>
+          )}
 
           <Text style={styles.candidateTitle}>Selecciona tu candidato</Text>
           <View style={styles.candidateContainer}>
-            <TouchableOpacity
-              style={styles.candidateCard}
-              onPress={() => handleVote(1)}
-            >
-              <Image
-                source={require("../assets/AndreaA.jpeg")}
-                style={styles.candidateAvatar}
-              />
-              <Text style={styles.candidateName}>Andrea Aparicio</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.candidateCard}
-              onPress={() => handleVote(2)}
-            >
-              <Image
-                source={require("../assets/CristinaP.png")}
-                style={styles.candidateAvatar}
-              />
-              <Text style={styles.candidateName}>Cristina Pacheco</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.candidateCard}
-              onPress={() => handleVote(3)}
-            >
-              <Image
-                source={require("../assets/JorgeG.jpeg")}
-                style={styles.candidateAvatar}
-              />
-              <Text style={styles.candidateName}>Jorge Gamez</Text>
-            </TouchableOpacity>
+            {[1, 2, 3].map((candidate) => (
+              <TouchableOpacity
+                key={candidate}
+                style={[
+                  styles.candidateCard,
+                  isSelected(candidate) && styles.selectedCard,
+                ]}
+                onPress={() => toggleVote(candidate)}
+              >
+                <Image
+                  source={
+                    candidate === 1
+                      ? require("../assets/AndreaA.jpeg")
+                      : candidate === 2
+                      ? require("../assets/CristinaP.png")
+                      : require("../assets/JorgeG.jpeg")
+                  }
+                  style={styles.candidateAvatar}
+                />
+                <Text style={styles.candidateName}>
+                  {candidate === 1
+                    ? "Andrea Aparicio"
+                    : candidate === 2
+                    ? "Cristina Pacheco"
+                    : "Jorge Gamez"}
+                </Text>
+                {isSelected(candidate) && (
+                  <Text style={styles.overlayText}>X</Text>
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
 
           <View style={styles.otherCandidateContainer}>
-            <Text style={styles.candidateName}>Otro</Text>
             <TextInput
               mode="outlined"
               placeholder="Ingresa el candidato (Opcional)"
@@ -205,10 +239,13 @@ const SeleccionarCandidato = () => {
               onChangeText={setOtherCandidate}
               style={styles.input}
             />
-
             <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleOtherCandidate}
+              style={[
+                styles.logoutButton,
+                isVoteButtonDisabled && { backgroundColor: "#CCC" },
+              ]}
+              onPress={submitVotes}
+              disabled={isVoteButtonDisabled}
             >
               <Text style={styles.logoutButtonText}>Votar</Text>
             </TouchableOpacity>
@@ -225,6 +262,7 @@ const SeleccionarCandidato = () => {
     </SafeAreaView>
   );
 };
+
 
 export default SeleccionarCandidato;
 
@@ -274,6 +312,10 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     width: 100,
+    position: "relative",
+  },
+  selectedCard: {
+    backgroundColor: "#B5651D",
   },
   candidateAvatar: {
     width: 80,
@@ -286,6 +328,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  overlayText: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "red",
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 4,
+    textAlign: "center",
+  },
   otherCandidateContainer: {
     marginBottom: 20,
   },
@@ -293,10 +347,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     marginTop: 5,
     borderRadius: 5,
-  },
-  voteButton: {
-    marginTop: 10,
-    backgroundColor: "#3A5335",
   },
   logoutButton: {
     backgroundColor: "#3A5335",
