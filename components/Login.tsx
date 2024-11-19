@@ -8,6 +8,7 @@ import {
   Alert,
   Text,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -16,6 +17,7 @@ import axios from "axios";
 const Login = () => {
   const [unip, setUnip] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // Estado para el loader
   const router = useRouter();
 
   // Función para verificar la autenticación
@@ -25,46 +27,14 @@ const Login = () => {
       return;
     }
 
-    /* try {
-      const response = await axios.post(
-        "https://votacionrectorsys.ddns.net:9002/usuarios/auth",
-        {
-          identificador: unip,
-          password: password,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "Basic ZG1vbnN2ckBnbWFpbC5jb206U2lzdGVtYSpWb3RhY2lvbi1SMDE=",
-          },
-        },
-      );
-
-      console.log(response);
-
-      // Suponiendo que el token de autenticación se devuelve en response.data.token
-      if (response.data.token) {
-        await AsyncStorage.setItem("authToken", response.data.token);
-        Alert.alert("Éxito", "Inicio de sesión correcto.");
-        router.replace("/home"); // Redirige a la pantalla principal
-      } else {
-        Alert.alert("Error", "Credenciales incorrectas.");
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Hubo un problema al iniciar sesión.");
-    } */
-
-    //const auth = "Basic " + btoa("admonsvr@gmail.com:Sistema*Votacion-R01");
-
+    setIsLoading(true); // Mostrar loader
     try {
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/auth/login",
         {
           username: unip,
-          password: password
-      }
+          password: password,
+        }
       );
 
       if (response.data) {
@@ -75,10 +45,19 @@ const Login = () => {
         await AsyncStorage.setItem("numCuenta", response.data.numCuenta);
         await AsyncStorage.setItem(
           "cveuser",
-          response.data.cveuser.toLocaleString(),
+          response.data.cveuser.toLocaleString()
         );
-        if(response.data.instList.length>0) {
-        await AsyncStorage.setItem("instList", response.data.instList[0].toLocaleString());
+        if (response.data.instList.length > 0) {
+          await AsyncStorage.setItem(
+            "instList",
+            response.data.instList[0].toLocaleString()
+          );
+        }
+        if (response.data.rolList.length > 0) {
+          await AsyncStorage.setItem(
+            "rolList",
+            response.data.rolList[0].toLocaleString()
+          );
         }
 
         router.replace("/home"); // Redirige a la pantalla principal
@@ -88,6 +67,8 @@ const Login = () => {
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Hubo un problema al iniciar sesión.");
+    } finally {
+      setIsLoading(false); // Ocultar loader
     }
   };
 
@@ -117,9 +98,13 @@ const Login = () => {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-      </TouchableOpacity>
+      {isLoading ? ( // Mostrar loader mientras se realiza la solicitud
+        <ActivityIndicator size="large" color="#496942" />
+      ) : (
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+        </TouchableOpacity>
+      )}
 
       <Text style={styles.footerText}>UAEM</Text>
       <Text style={styles.slogan}>“El voto es libre y secreto”</Text>

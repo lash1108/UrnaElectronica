@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -22,17 +23,18 @@ type UserData = {
   numCuenta: string;
   instList: string;
   email: string;
+  rolList: string;
 };
 
 const SeleccionarCandidato = () => {
   const [otherCandidate, setOtherCandidate] = useState("");
   const [selectedVotes, setSelectedVotes] = useState<string[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(false); // Nuevo estado para loader
+
   const router = useRouter();
 
   const isVoteButtonDisabled = selectedVotes.length === 0 && otherCandidate.trim() === "";
-
-  console.log(selectedVotes)
 
   useEffect(() => {
     (async () => {
@@ -42,6 +44,7 @@ const SeleccionarCandidato = () => {
         "numCuenta",
         "instList",
         "email",
+        "rolList",
       ]);
       const dataObject = Object.fromEntries(storedData);
       setUserData({
@@ -50,6 +53,7 @@ const SeleccionarCandidato = () => {
         numCuenta: dataObject.numCuenta || "",
         instList: dataObject.instList || "Facultad de Ingeniería",
         email: dataObject.email || "",
+        rolList: dataObject.rolList || "Estudiante",
       });
       startTimer();
     })();
@@ -85,15 +89,32 @@ const SeleccionarCandidato = () => {
   };
 
   const sendVote = async (claveCandidate: number) => {
+    setIsLoading(true); // Mostrar loader
     try {
       const [cveuser, token] = await Promise.all([
         getStorageValue("cveuser"),
         getStorageValue("authToken"),
       ]);
 
+      let userKey: number | null = null;
+      if (typeof cveuser === "string") {
+        const cleanedKey = cveuser.replace(/,/g, "");
+        if (/^\d+$/.test(cleanedKey)) {
+          userKey = Number(cleanedKey);
+        } else {
+          Alert.alert("Error", "Clave de usuario no válida.");
+          return;
+        }
+      }
+
+      if (userKey === null) {
+        Alert.alert("Error", "Clave de usuario no válida.");
+        return;
+      }
+
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVoto",
-        { value1: cveuser, value2: claveCandidate },
+        { value1: userKey, value2: claveCandidate },
         {
           headers: {
             "Content-Type": "application/json",
@@ -101,8 +122,6 @@ const SeleccionarCandidato = () => {
           },
         }
       );
-
-      console.log(response)
 
       if (response.data) {
         Alert.alert("Voto registrado", "Has votado correctamente.");
@@ -112,29 +131,45 @@ const SeleccionarCandidato = () => {
       }
     } catch (error) {
       handleError(error, "Hubo un problema al registrar tu voto.");
+    } finally {
+      setIsLoading(false); // Ocultar loader
     }
   };
 
   const sendMultipleVotes = async (clavesCandidates: string[]) => {
+    setIsLoading(true); // Mostrar loader
     try {
       const [cveuser, token] = await Promise.all([
         getStorageValue("cveuser"),
         getStorageValue("authToken"),
       ]);
-  
-      // Concatenar los votos seleccionados en una cadena
+
+      let userKey: number | null = null;
+      if (typeof cveuser === "string") {
+        const cleanedKey = cveuser.replace(/,/g, "");
+        if (/^\d+$/.test(cleanedKey)) {
+          userKey = Number(cleanedKey);
+        } else {
+          Alert.alert("Error", "Clave de usuario no válida.");
+          return;
+        }
+      }
+
+      if (userKey === null) {
+        Alert.alert("Error", "Clave de usuario no válida.");
+        return;
+      }
+
       let votesString = clavesCandidates.join(",");
-  
-      // Agregar el texto del input si existe
       if (otherCandidate.trim() !== "") {
         votesString += `,${otherCandidate.trim()}`;
       }
-  
-      await axios.post(
+
+      const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
         {
-          id: cveuser,
-          keys: votesString, // Enviar la cadena concatenada
+          id: userKey,
+          keys: votesString,
         },
         {
           headers: {
@@ -143,21 +178,24 @@ const SeleccionarCandidato = () => {
           },
         }
       );
-  
-      Alert.alert("Voto registrado", "Has votado correctamente.");
-      resetVote();
+
+      if (response.data) {
+        Alert.alert("Voto registrado", "Has votado correctamente.");
+        resetVote();
+      } else {
+        Alert.alert("Error", "Ya has votado.");
+      }
     } catch (error) {
       handleError(error, "Hubo un problema al registrar tu voto.");
+    } finally {
+      setIsLoading(false); // Ocultar loader
     }
   };
-  
 
   const handleError = (error: any, defaultMessage: string) => {
     if (error.response) {
-      console.error("Error status:", error.response.status);
       Alert.alert("Atención", "Ya has votado.");
     } else {
-      console.error("Error:", error.message);
       Alert.alert("Error", defaultMessage);
     }
   };
@@ -186,95 +224,98 @@ const SeleccionarCandidato = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          {userData && (
-            <View style={styles.userInfoContainer}>
-              <View style={styles.userDetails}>
-                <Text style={styles.userInfoText}>
-                  Espacio académico: {userData.instList}
+          {isLoading ? ( // Mostrar loader mientras se realiza una petición
+            <ActivityIndicator size="large" color="#3A5335" />
+          ) : (
+            <>
+              {userData && (
+                <View style={styles.userInfoContainer}>
+                  <View style={styles.userDetails}>
+                    <Text style={styles.userInfoText}>
+                      Espacio académico: {userData.instList}
+                    </Text>
+                    <Text style={styles.userInfoText}>
+                      Número de cuenta: {userData.numCuenta}
+                    </Text>
+                    <Text style={styles.userInfoText}>
+                      Tipo usuario: {userData.rolList}
+                    </Text>
+                    <Text style={styles.userInfoText}>
+                      Correo institucional: {userData.email}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {userData && (
+                <Text style={styles.userName}>
+                  {userData.name} {userData.lastName}
                 </Text>
-                <Text style={styles.userInfoText}>
-                  Número de cuenta: {userData.numCuenta}
-                </Text>
-                <Text style={styles.userInfoText}>Tipo usuario: Estudiante</Text>
-                <Text style={styles.userInfoText}>
-                  Correo institucional: {userData.email}
-                </Text>
+              )}
+              <Text style={styles.candidateTitle}>Selecciona tu candidato</Text>
+              <View style={styles.candidateContainer}>
+                {["1", "2", "3"].map((candidate) => (
+                  <TouchableOpacity
+                    key={candidate}
+                    style={[
+                      styles.candidateCard,
+                      isSelected(candidate) && styles.selectedCard,
+                    ]}
+                    onPress={() => toggleVote(candidate)}
+                  >
+                    <Image
+                      source={
+                        candidate === "1"
+                          ? require("../assets/AndreaA.jpeg")
+                          : candidate === "2"
+                          ? require("../assets/CristinaP.png")
+                          : require("../assets/JorgeG.jpeg")
+                      }
+                      style={styles.candidateAvatar}
+                    />
+                    <Text style={styles.candidateName}>
+                      {candidate === "1"
+                        ? "Andrea Aparicio"
+                        : candidate === "2"
+                        ? "Cristina Pacheco"
+                        : "Jorge Gamez"}
+                    </Text>
+                    {isSelected(candidate) && (
+                      <Text style={styles.overlayText}>X</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
-          )}
-          {userData && (
-            <Text style={styles.userName}>
-              {userData.name} {userData.lastName}
-            </Text>
-          )}
-
-          <Text style={styles.candidateTitle}>Selecciona tu candidato</Text>
-          <View style={styles.candidateContainer}>
-            {["1", "2", "3"].map((candidate) => (
-              <TouchableOpacity
-                key={candidate}
-                style={[
-                  styles.candidateCard,
-                  isSelected(candidate) && styles.selectedCard,
-                ]}
-                onPress={() => toggleVote(candidate)}
-              >
-                <Image
-                  source={
-                    candidate === "1"
-                      ? require("../assets/AndreaA.jpeg")
-                      : candidate === "2"
-                      ? require("../assets/CristinaP.png")
-                      : require("../assets/JorgeG.jpeg")
-                  }
-                  style={styles.candidateAvatar}
+              <View style={styles.otherCandidateContainer}>
+                <TextInput
+                  mode="outlined"
+                  placeholder="Ingresa el candidato (Opcional)"
+                  value={otherCandidate}
+                  onChangeText={setOtherCandidate}
+                  style={styles.input}
                 />
-                <Text style={styles.candidateName}>
-                  {candidate === "1"
-                    ? "Andrea Aparicio"
-                    : candidate === "2"
-                    ? "Cristina Pacheco"
-                    : "Jorge Gamez"}
-                </Text>
-                {isSelected(candidate) && (
-                  <Text style={styles.overlayText}>X</Text>
-                )}
+                <TouchableOpacity
+                  style={[
+                    styles.logoutButton,
+                    isVoteButtonDisabled && { backgroundColor: "#CCC" },
+                  ]}
+                  onPress={submitVotes}
+                  disabled={isVoteButtonDisabled}
+                >
+                  <Text style={styles.logoutButtonText}>Votar</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.otherCandidateContainer}>
-            <TextInput
-              mode="outlined"
-              placeholder="Ingresa el candidato (Opcional)"
-              value={otherCandidate}
-              onChangeText={setOtherCandidate}
-              style={styles.input}
-            />
-            <TouchableOpacity
-              style={[
-                styles.logoutButton,
-                isVoteButtonDisabled && { backgroundColor: "#CCC" },
-              ]}
-              onPress={submitVotes}
-              disabled={isVoteButtonDisabled}
-            >
-              <Text style={styles.logoutButtonText}>Votar</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.footerText}>UAEM</Text>
-          <Text style={styles.footerSubText}>El voto es libre y secreto</Text>
+              <Text style={styles.footerText}>UAEM</Text>
+              <Text style={styles.footerSubText}>El voto es libre y secreto</Text>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
-
 
 export default SeleccionarCandidato;
 
