@@ -26,12 +26,13 @@ type UserData = {
 
 const SeleccionarCandidato = () => {
   const [otherCandidate, setOtherCandidate] = useState("");
-  const [selectedVotes, setSelectedVotes] = useState<number[]>([]);
+  const [selectedVotes, setSelectedVotes] = useState<string[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
   const router = useRouter();
 
-  // Nueva lógica para determinar si el botón debe estar habilitado
   const isVoteButtonDisabled = selectedVotes.length === 0 && otherCandidate.trim() === "";
+
+  console.log(selectedVotes)
 
   useEffect(() => {
     (async () => {
@@ -77,7 +78,7 @@ const SeleccionarCandidato = () => {
 
   const submitVotes = async () => {
     if (selectedVotes.length === 1) {
-      await sendVote(selectedVotes[0]);
+      await sendVote(Number(selectedVotes[0]));
     } else {
       await sendMultipleVotes(selectedVotes);
     }
@@ -101,6 +102,8 @@ const SeleccionarCandidato = () => {
         }
       );
 
+      console.log(response)
+
       if (response.data) {
         Alert.alert("Voto registrado", "Has votado correctamente.");
         resetVote();
@@ -112,18 +115,26 @@ const SeleccionarCandidato = () => {
     }
   };
 
-  const sendMultipleVotes = async (clavesCandidates: number[]) => {
+  const sendMultipleVotes = async (clavesCandidates: string[]) => {
     try {
       const [cveuser, token] = await Promise.all([
         getStorageValue("cveuser"),
         getStorageValue("authToken"),
       ]);
-
+  
+      // Concatenar los votos seleccionados en una cadena
+      let votesString = clavesCandidates.join(",");
+  
+      // Agregar el texto del input si existe
+      if (otherCandidate.trim() !== "") {
+        votesString += `,${otherCandidate.trim()}`;
+      }
+  
       await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
         {
           id: cveuser,
-          keys: clavesCandidates,
+          keys: votesString, // Enviar la cadena concatenada
         },
         {
           headers: {
@@ -132,13 +143,14 @@ const SeleccionarCandidato = () => {
           },
         }
       );
-
+  
       Alert.alert("Voto registrado", "Has votado correctamente.");
       resetVote();
     } catch (error) {
       handleError(error, "Hubo un problema al registrar tu voto.");
     }
   };
+  
 
   const handleError = (error: any, defaultMessage: string) => {
     if (error.response) {
@@ -155,7 +167,7 @@ const SeleccionarCandidato = () => {
     setOtherCandidate("");
   };
 
-  const toggleVote = (candidate: number) => {
+  const toggleVote = (candidate: string) => {
     if (selectedVotes.includes(candidate)) {
       setSelectedVotes((prevVotes) =>
         prevVotes.filter((vote) => vote !== candidate)
@@ -165,7 +177,7 @@ const SeleccionarCandidato = () => {
     }
   };
 
-  const isSelected = (candidate: number) => selectedVotes.includes(candidate);
+  const isSelected = (candidate: string) => selectedVotes.includes(candidate);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -198,7 +210,7 @@ const SeleccionarCandidato = () => {
 
           <Text style={styles.candidateTitle}>Selecciona tu candidato</Text>
           <View style={styles.candidateContainer}>
-            {[1, 2, 3].map((candidate) => (
+            {["1", "2", "3"].map((candidate) => (
               <TouchableOpacity
                 key={candidate}
                 style={[
@@ -209,18 +221,18 @@ const SeleccionarCandidato = () => {
               >
                 <Image
                   source={
-                    candidate === 1
+                    candidate === "1"
                       ? require("../assets/AndreaA.jpeg")
-                      : candidate === 2
+                      : candidate === "2"
                       ? require("../assets/CristinaP.png")
                       : require("../assets/JorgeG.jpeg")
                   }
                   style={styles.candidateAvatar}
                 />
                 <Text style={styles.candidateName}>
-                  {candidate === 1
+                  {candidate === "1"
                     ? "Andrea Aparicio"
-                    : candidate === 2
+                    : candidate === "2"
                     ? "Cristina Pacheco"
                     : "Jorge Gamez"}
                 </Text>

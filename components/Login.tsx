@@ -62,13 +62,12 @@ const Login = () => {
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/auth/login",
         {
-          username: "admonsvr@gmail.com",
-          password: "Sistema*Votacion-R01"
+          username: unip,
+          password: password
       }
       );
 
       if (response.data) {
-        console.log(response.data);
         await AsyncStorage.setItem("authToken", response.data.token);
         await AsyncStorage.setItem("email", response.data.email);
         await AsyncStorage.setItem("name", response.data.name);
