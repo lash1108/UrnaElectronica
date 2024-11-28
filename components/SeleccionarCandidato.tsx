@@ -169,7 +169,6 @@ const SeleccionarCandidato = () => {
             : `${otherCandidate.trim()}`;
       }
 
-      console.log(votesString);
 
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
