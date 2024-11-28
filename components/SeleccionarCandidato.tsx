@@ -63,7 +63,7 @@ const SeleccionarCandidato = () => {
   const startTimer = () => {
     Alert.alert(
       "Atención",
-      "Cuentas con 3 minutos a partir de ahora para votar.",
+      "Cuentas con 3 minutos a partir de ahora para votar."
     );
 
     setTimeout(() => {
@@ -121,7 +121,7 @@ const SeleccionarCandidato = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (response.data) {
@@ -161,23 +161,23 @@ const SeleccionarCandidato = () => {
         return;
       }
 
-      let votesString = clavesCandidates.join(" ");
+      let votesString = clavesCandidates.join(",");
       if (otherCandidate.trim() !== "") {
-        votesString += `,${otherCandidate.trim()}`;
+        votesString += `${otherCandidate.trim()}`;
       }
 
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
         {
           id: userKey,
-          keys: votesString,
+          key: votesString as string,
         },
         {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (response.data) {
@@ -209,7 +209,7 @@ const SeleccionarCandidato = () => {
   const toggleVote = (candidate: string) => {
     if (selectedVotes.includes(candidate)) {
       setSelectedVotes((prevVotes) =>
-        prevVotes.filter((vote) => vote !== candidate),
+        prevVotes.filter((vote) => vote !== candidate)
       );
     } else {
       setSelectedVotes((prevVotes) => [...prevVotes, candidate]);
