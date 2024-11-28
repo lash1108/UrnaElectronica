@@ -163,8 +163,13 @@ const SeleccionarCandidato = () => {
 
       let votesString = clavesCandidates.join(",");
       if (otherCandidate.trim() !== "") {
-        votesString += `${otherCandidate.trim()}`;
+        votesString +=
+          clavesCandidates.length > 0
+            ? `,${otherCandidate.trim()}`
+            : `${otherCandidate.trim()}`;
       }
+
+      console.log(votesString);
 
       const response = await axios.post(
         "https://votacionrectorsys.ddns.net:9002/votacion/setVotoWithKey",
